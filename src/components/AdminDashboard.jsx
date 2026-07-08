@@ -54,7 +54,7 @@ const ZONES = [
   "South/UT"
 ];
 
-function AdminDashboard() {
+function AdminDashboard({ inspectedPhcId }) {
   const [phcs, setPhcs] = useState(SEEDED_PHCS);
   const [logs, setLogs] = useState([]);
   
@@ -64,6 +64,13 @@ function AdminDashboard() {
   
   // Selected PHC for chart view
   const [activePhcId, setActivePhcId] = useState(SEEDED_PHCS[0].id);
+
+  // Sync with map inspection trigger
+  useEffect(() => {
+    if (inspectedPhcId) {
+      setActivePhcId(inspectedPhcId);
+    }
+  }, [inspectedPhcId]);
   const [activeMedicineId, setActiveMedicineId] = useState('paracetamol');
   
   // AI Caching states (to prevent duplicate API requests)
@@ -411,6 +418,26 @@ function AdminDashboard() {
     try {
       await transferStock(sug.fromPhcId, sug.toPhcId, sug.medicineId, sug.quantity);
       setSuccessTransfer(`Successfully processed transfer of ${sug.quantity} units of ${sug.medicineName} to ${sug.toPhcName}!`);
+      
+      // Dispatch logistics shipment entry
+      try {
+        const currentTransfers = JSON.parse(localStorage.getItem('groundtruth_transfers') || '[]');
+        const newTransfer = {
+          id: `t-${Date.now()}`,
+          fromPhcName: sug.fromPhcName,
+          toPhcName: sug.toPhcName,
+          medicineName: sug.medicineName,
+          quantity: sug.quantity,
+          status: 'dispatched',
+          timestamp: new Date().toISOString()
+        };
+        currentTransfers.unshift(newTransfer);
+        localStorage.setItem('groundtruth_transfers', JSON.stringify(currentTransfers));
+        window.dispatchEvent(new Event('transfer-added'));
+      } catch (err) {
+        console.error("Failed to update logistics pipeline:", err);
+      }
+
       setTimeout(() => setSuccessTransfer(''), 4000);
     } catch (err) {
       setErrorTransfer(`Transfer failed: ${err.message}`);

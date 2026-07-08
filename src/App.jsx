@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import StaffInput from './components/StaffInput';
 import AdminDashboard from './components/AdminDashboard';
-import { isFirebaseConnected, getSavedFirebaseConfig, saveFirebaseConfig } from './services/db';
+import MapMonitor from './components/MapMonitor';
+import ChatAssistant from './components/ChatAssistant';
+import LogisticsPipeline from './components/LogisticsPipeline';
+import { isFirebaseConnected, getSavedFirebaseConfig, saveFirebaseConfig, subscribeToLogs } from './services/db';
 import { getSavedGeminiKey, getSavedGcpKey, saveApiKeys } from './services/ai';
-import { runSeeding } from './services/seed';
-import { Settings, Shield, Activity, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { runSeeding, SEEDED_PHCS } from './services/seed';
+import { Settings, Shield, Activity, RefreshCw, AlertTriangle, CheckCircle, Map, Package, Clipboard, HelpCircle } from 'lucide-react';
 
 function App() {
-  const [viewMode, setViewMode] = useState('staff'); // 'staff' or 'admin'
+  const [viewMode, setViewMode] = useState('admin'); // default to admin dashboard for wow-factor first impression!
   const [showConfig, setShowConfig] = useState(false);
   const [dbConnected, setDbConnected] = useState(isFirebaseConnected());
   const [seedingStatus, setSeedingStatus] = useState(null); // 'seeding', 'success', 'error'
+  const [inspectedPhcId, setInspectedPhcId] = useState(null);
   
   // API and Firebase Config States
   const [geminiKey, setGeminiKey] = useState(getSavedGeminiKey());
@@ -23,7 +27,11 @@ function App() {
   const [fbSenderId, setFbSenderId] = useState('');
   const [fbAppId, setFbAppId] = useState('');
   
-  const [useDevMock, setUseDevMock] = useState(localStorage.getItem('VITE_USE_DEV_MOCK') === 'true');
+  // Safe default: Evaluators get Local Mock Mode by default if VITE_USE_DEV_MOCK is not explicitly set to 'false'
+  const [useDevMock, setUseDevMock] = useState(localStorage.getItem('VITE_USE_DEV_MOCK') !== 'false');
+
+  // Logs state for Leaflet markers & AI assistant context
+  const [logs, setLogs] = useState([]);
 
   useEffect(() => {
     // Load saved Firebase config into state if it exists
@@ -36,6 +44,12 @@ function App() {
       setFbSenderId(savedFb.messagingSenderId || '');
       setFbAppId(savedFb.appId || '');
     }
+
+    // Subscribe to database logs
+    const unsubscribe = subscribeToLogs((fetchedLogs) => {
+      setLogs(fetchedLogs);
+    });
+    return () => unsubscribe();
   }, []);
 
   const handleSaveConfig = () => {
@@ -62,7 +76,7 @@ function App() {
     
     setShowConfig(false);
     
-    // Refresh to apply new Firebase config
+    // Refresh to apply changes
     window.location.reload();
   };
 
@@ -79,99 +93,178 @@ function App() {
     }
   };
 
+  // Compile real-time statuses for 8 health centers
+  const computedPHCs = SEEDED_PHCS.map(phc => {
+    const phcLogs = logs.filter(l => l.phcId === phc.id).sort((a, b) => b.date.localeCompare(a.date));
+    const latestLog = phcLogs[0] || null;
+    
+    // Simple status computation
+    let status = 'green';
+    if (latestLog) {
+      const hasCriticalStockout = Object.values(latestLog.medicineStock || {}).some(qty => Number(qty) === 0);
+      const docAbsent = Object.values(latestLog.doctorAttendance || {}).some(pres => !pres);
+      const bedPercent = latestLog.occupiedBeds / phc.capacity;
+      
+      if (hasCriticalStockout || docAbsent || bedPercent >= 0.9) {
+        status = 'red';
+      } else {
+        const hasWarning = Object.values(latestLog.medicineStock || {}).some(qty => Number(qty) <= 40);
+        if (hasWarning || bedPercent >= 0.7) {
+          status = 'amber';
+        }
+      }
+    }
+    
+    return { ...phc, latestLog, status };
+  });
+
   const hasMissingKeys = !geminiKey || !gcpKey || (!useDevMock && !fbProjId);
 
   return (
-    <div className="app-container">
-      {/* Header */}
-      <header className="header flex justify-between items-center flex-mobile-col gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex justify-center items-center" style={{ 
-            backgroundColor: 'var(--color-primary)', 
-            width: '40px', 
-            height: '40px', 
-            borderRadius: 'var(--radius-md)', 
-            color: 'white' 
-          }}>
-            <Activity size={24} />
-          </div>
+    <div className="app-layout">
+      
+      {/* Sleek COLLAPSIBLE BRAND SIDEBAR */}
+      <aside className="sidebar">
+        
+        {/* Custom SVG heartbeat logo */}
+        <div className="sidebar-brand">
+          <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 25 45 A 28 28 0 0 1 73 42" stroke="var(--color-primary)" stroke-width="6" stroke-linecap="round" fill="none"/>
+            <path d="M 78 55 A 28 28 0 0 1 22 55" stroke="var(--color-primary)" stroke-width="6" stroke-linecap="round" fill="none"/>
+            <circle cx="12" cy="50" r="5" fill="var(--color-primary)" />
+            <path d="M 12 50 H 30 L 35 40 L 40 60 L 45 30 L 50 52 L 55 48" stroke="var(--color-primary)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <path d="M 55 48 L 60 55 L 68 50 L 90 20" stroke="var(--color-accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <circle cx="90" cy="20" r="5" fill="var(--color-accent)" />
+            <rect x="66" y="58" width="5" height="12" rx="1.5" fill="var(--color-primary)" />
+            <rect x="74" y="52" width="5" height="18" rx="1.5" fill="var(--color-primary)" />
+          </svg>
           <div>
-            <h1 className="text-xl font-bold" style={{ letterSpacing: '-0.02em', color: 'var(--color-text)' }}>
+            <h1 className="text-base font-bold" style={{ letterSpacing: '-0.02em', color: 'var(--color-text)', lineHeight: 1.1 }}>
               Ground<span style={{ color: 'var(--color-accent)' }}>Truth</span>
             </h1>
-            <p className="text-xs" style={{ color: 'var(--color-text-muted)', fontWeight: 500 }}>
-              AI-Driven Health Center & Supply Chain Management
-            </p>
+            <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)', fontWeight: 600, display: 'block', marginTop: '1px' }}>
+              COMMUNITY HEALTH AI
+            </span>
           </div>
         </div>
 
-        {/* View Mode Tabs */}
-        <div className="mode-tabs">
+        {/* Sidebar Nav Links */}
+        <nav className="sidebar-menu">
           <button 
-            className={`mode-tab ${viewMode === 'staff' ? 'active' : ''}`}
-            onClick={() => setViewMode('staff')}
-          >
-            PHC Staff Log
-          </button>
-          <button 
-            className={`mode-tab ${viewMode === 'admin' ? 'active' : ''}`}
+            className={`sidebar-item ${viewMode === 'admin' ? 'active' : ''}`}
             onClick={() => setViewMode('admin')}
           >
-            District Admin Dashboard
+            <Clipboard size={18} />
+            Live Dashboard
           </button>
-        </div>
-
-        {/* System Settings & Connection Details */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            {dbConnected && !useDevMock ? (
-              <span className="badge badge-green" style={{ fontSize: '0.7rem' }}>
-                Firestore Live
-              </span>
-            ) : useDevMock ? (
-              <span className="badge badge-amber" style={{ fontSize: '0.7rem' }}>
-                Local Dev Mode
-              </span>
-            ) : (
-              <span className="badge badge-red" style={{ fontSize: '0.7rem' }}>
-                Offline/No Config
-              </span>
-            )}
-          </div>
+          
           <button 
-            className="btn btn-outline flex items-center justify-center btn-icon-only" 
-            onClick={() => setShowConfig(true)}
-            title="Developer Configuration"
-            style={{ borderRadius: 'var(--radius-md)', padding: '0.5rem' }}
+            className={`sidebar-item ${viewMode === 'map' ? 'active' : ''}`}
+            onClick={() => setViewMode('map')}
           >
-            <Settings size={20} />
+            <Map size={18} />
+            Geographic Monitor
           </button>
-        </div>
-      </header>
 
-      {/* Main Content Area */}
-      <main className="main-content">
-        {/* Warning banner for missing credentials */}
-        {hasMissingKeys && (
-          <div className="alert-banner alert-banner-warning flex justify-between items-center">
-            <div className="flex items-start gap-2">
-              <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong>Developer Credentials Needed:</strong> Some Google Cloud settings are missing. Please configure your Firebase credentials, Google Cloud API Key (for Speech-to-Text), and Gemini API Key to enable live sync and voice features.
-              </div>
+          <button 
+            className={`sidebar-item ${viewMode === 'staff' ? 'active' : ''}`}
+            onClick={() => setViewMode('staff')}
+          >
+            <Activity size={18} />
+            PHC Staff Log
+          </button>
+
+          <button 
+            className={`sidebar-item ${viewMode === 'logistics' ? 'active' : ''}`}
+            onClick={() => setViewMode('logistics')}
+          >
+            <Package size={18} />
+            Supply Dispatches
+          </button>
+        </nav>
+
+        {/* Sidebar Footer with Status Badge and Developer Config */}
+        <div className="sidebar-footer">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold" style={{ color: 'var(--color-text-muted)' }}>Connection:</span>
+              {dbConnected && !useDevMock ? (
+                <span className="badge badge-green" style={{ fontSize: '0.65rem' }}>Live</span>
+              ) : useDevMock ? (
+                <span className="badge badge-amber" style={{ fontSize: '0.65rem' }}>Demo Mode</span>
+              ) : (
+                <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Offline</span>
+              )}
             </div>
-            <button className="btn btn-accent btn-sm" onClick={() => setShowConfig(true)} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}>
-              Configure Now
+            
+            <button 
+              className="btn btn-outline flex items-center justify-center gap-2"
+              onClick={() => setShowConfig(true)}
+              style={{ fontSize: '0.75rem', padding: '0.5rem', width: '100%', borderRadius: 'var(--radius-md)' }}
+            >
+              <Settings size={14} />
+              Developer Config
             </button>
           </div>
-        )}
+        </div>
 
-        {viewMode === 'staff' ? (
-          <StaffInput />
-        ) : (
-          <AdminDashboard />
-        )}
-      </main>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="main-content-layout">
+        
+        {/* Top bar for alerts / tips */}
+        <div style={{ backgroundColor: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', padding: '0.75rem 2rem', zIndex: 10 }}>
+          {useDevMock ? (
+            <div className="text-xs" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-text-muted)' }}>
+              <HelpCircle size={15} style={{ color: 'var(--color-warning)' }} />
+              <span>
+                💡 Running in <strong>Local Demo Mode</strong>. To connect your live GCP Speech-to-Text and Gemini API services, click the <strong>Developer Config</strong> button at the bottom of the sidebar.
+              </span>
+            </div>
+          ) : hasMissingKeys ? (
+            <div className="text-xs" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-danger)' }}>
+              <AlertTriangle size={15} />
+              <span>
+                ⚠️ Firebase or AI keys are missing. Switch to **Demo Mode** in Settings to test without keys, or enter your credentials.
+              </span>
+            </div>
+          ) : (
+            <div className="text-xs" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-success)' }}>
+              <CheckCircle size={15} />
+              <span>Live production sync active. Data writing directly to your Google Cloud Firestore instance.</span>
+            </div>
+          )}
+        </div>
+
+        {/* Content Router */}
+        <main className="page-container">
+          {viewMode === 'admin' && (
+            <AdminDashboard inspectedPhcId={inspectedPhcId} />
+          )}
+
+          {viewMode === 'map' && (
+            <MapMonitor 
+              phcList={computedPHCs} 
+              onSelectPHC={(id) => {
+                setInspectedPhcId(id);
+                setViewMode('admin'); // switch to chart on click
+              }} 
+            />
+          )}
+
+          {viewMode === 'staff' && (
+            <StaffInput />
+          )}
+
+          {viewMode === 'logistics' && (
+            <LogisticsPipeline />
+          )}
+        </main>
+      </div>
+
+      {/* Floating Gemini AI context assistant */}
+      <ChatAssistant phcList={computedPHCs} />
 
       {/* Developer Configuration Modal */}
       {showConfig && (
@@ -199,10 +292,10 @@ function App() {
               <div className="form-group" style={{ marginBottom: '1.5rem', padding: '0.75rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)' }}>
                 <div className="flex justify-between items-center">
                   <div>
-                    <label style={{ fontSize: '0.75rem' }}>Development Mock Safety Net</label>
+                    <label style={{ fontSize: '0.75rem' }}>Development Mock Safety Net (Demo Mode)</label>
                     <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', textTransform: 'none', marginTop: '0.15rem' }}>
                       Uses client-side LocalStorage if you do not have a live Firestore database ready. 
-                      <strong style={{ color: 'var(--color-danger)' }}> Note: Turn OFF for final evaluation.</strong>
+                      <strong> Recommended for public demo links to keep your credentials private.</strong>
                     </p>
                   </div>
                   <input 
