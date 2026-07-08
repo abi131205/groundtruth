@@ -1,84 +1,78 @@
-# GroundTruth — AI-Driven Smart Health Center & Supply Chain Dashboard
+# GroundTruth 🩺📦
 
-GroundTruth is a hackathon prototype developed for the **"Build with AI: Code for Communities"** Google Cloud Hackathon. It is designed to bridge the operational visibility gaps in Indian Public Health Centers (PHCs) and Community Health Centers (CHCs) nationwide.
-
----
-
-## Brand Identity & Design System
-*   **Primary Color**: Slate Blue `#5B6D7D` (inspired by the Ashoka Chakra)
-*   **Accent Color**: Burnt Orange `#B25A2B` (inspired by Saffron)
-*   **Background**: Off-white `#FAF7F2` (inspired by the flag white)
-*   **Success Status**: Muted Green `#3F7D4F` (inspired by the flag green)
-*   **Style**: Clean, minimal, government-dashboard-appropriate. Modern flat design, generous whitespace, single-weight icons.
+> **Build with AI: Code for Communities Hackathon**
+>
+> 🌐 **Live Website**: [groundtruth-health.web.app](https://groundtruth-health.web.app/)  
+> 💻 **GitHub Repository**: [github.com/abi131205/groundtruth](https://github.com/abi131205/groundtruth)
 
 ---
 
-## Key Features
-
-1.  **Low-Literacy Friendly PHC Input**:
-    *   Allows staff to log daily patient counts, bed occupancy, doctor attendance, and inventory updates.
-    *   **Multilingual voice dictation** (powered by GCP Speech-to-Text REST API).
-    *   **AI Free-Text parsing** (powered by Gemini 1.5 Flash) that extracts structured JSON data from spoken transcripts or typed notes in English and all major Indian languages.
-
-2.  **District/National Admin Dashboard**:
-    *   **Live Status Grid**: Displays health indicators (Green/Amber/Red) for all facilities with geographic filters.
-    *   **AI Stock-Out Predictor**: Evaluates 21-day historical stock depletion slopes and uses Gemini to write natural-language risk explanations.
-    *   **AI Smart Redistribution Recommendations**: Recommends transferring stock from surplus facilities to deficit locations. Includes a **Confirm & Process Transfer** button that runs a real-time atomic Firestore transaction.
-    *   **AI Underperformance Flagging**: Auto-flags facilities with chronic absenteeism or inventory issues and outputs audit summaries.
-    *   **Trend Visuals**: High-fidelity line graphs (powered by Recharts) showing footfall and stock history.
+## 👥 Team Information
+*   **Team Name**: GroundTruth
+*   **Team Members**: Abijith, Mayuri, Sneha, Hari
 
 ---
 
-## Technical Stack
-*   **Frontend**: React (Vite)
-*   **Database**: Google Cloud Firebase Firestore
-*   **AI/LLM**: Gemini API (`gemini-1.5-flash`)
-*   **Speech**: Google Cloud Speech-to-Text REST API (`v1/speech:recognize`)
-*   **Visualization**: Recharts
+## 📌 Project Overview
+**GroundTruth** is an AI-driven, real-time resource management and peer-to-peer supply chain redistribution platform designed for Indian Primary Health Centers (PHCs) and Community Health Centers (CHCs). 
 
----
+By bridging the operational gap between remote village clinics and district health offices, the platform digitizes daily reporting, predicts essential medicine stockouts, flags staff absenteeism or bed strain, and automates supply rebalancing using atomic transactional transfers.
 
-## Setup & Running Instructions
-
-### 1. Installation
-In the project directory, run:
-```bash
-npm install
+```mermaid
+graph TD
+    A[Staff Input UI] -->|Record Voice / Type Logs| B[GCP STT + Gemini API]
+    B -->|Structured JSON| A
+    A -->|Verified Log Submit| C[Firebase Firestore]
+    C -->|Real-time Sync| D[Admin Dashboard UI]
+    C -->|Real-time Sync| G[Leaflet Map Monitor]
+    C -->|Dynamic Context| H[Gemini AI Chat Assistant]
+    D -->|Trend Analysis| E[AI Stockout & Underperformance Flagging]
+    D -->|Process Transfer| F[Firestore Transaction + Dispatch Trigger]
+    F -->|Logistics Entry| I[Logistics Dispatch Tracker]
 ```
 
-### 2. Configure Credentials
-You can configure Google Cloud credentials in two ways:
+---
 
-#### Option A: Interactive UI (Recommended for Demos)
-1.  Run the server: `npm run dev`
-2.  Open the site in your browser.
-3.  Click the **Settings Gear (top-right)** to open the Developer Config.
-4.  Paste your API Keys and Firebase Web Config details.
-5.  Click **Save & Apply Settings**. The app will reload and connect.
+## 🚀 Key Features
 
-#### Option B: Environment Variables
-Create a file named `.env.local` in the root directory (based on `.env.template`):
-```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-VITE_GEMINI_API_KEY=your_gemini_api_key
-VITE_GCP_API_KEY=your_gcp_api_key
-```
+### 1. 🎙️ Low-Literacy Multilingual Voice Logger
+*   Allows rural clinic staff to dictate daily operational reports (patients, bed occupancy, doctor shifts, and inventory) in **English, Hindi, or Tamil**.
+*   Utilizes **Google Cloud Speech-to-Text** (with local browser Web Speech API fallback) for transcription.
+*   Uses **Gemini** to translate, clean, and map free-speech text (including Hinglish and colloquial terms like "goli" or "dava") into structured database fields.
 
-### 3. Seed test database
-1.  Open the **Settings Gear (top-right)**.
-2.  Click **Run Seeder**.
-3.  This programmatically generates 21 days of logs for 8 geographically diverse facilities representing different zones/UTs in India (UP, MP, AP, West Bengal, Gujarat, Nagaland, Jammu & Kashmir, Puducherry).
+### 🗺️ 2. Geographic Health Monitor (Leaflet Map)
+*   Renders an interactive map of India plotting all 8 nationwide health centers at their coordinates.
+*   Pins are color-coded in real-time (**Green/Amber/Red**) based on operational health (stockouts, capacity strain, or staff absence).
+*   Allows admins to inspect detailed clinic statistics or jump directly to trend charts on click.
+
+### 📈 3. Predictive AI Stock-Out Warnings
+*   Runs mathematical slope analysis on 21-day inventory histories to forecast the exact number of days remaining before critical stock depletion.
+*   Calls Gemini on-demand to write custom, natural-language operational explanations for the warning.
+
+### 🔄 4. Peer-to-Peer AI Stock Redistribution
+*   Automatically matches deficit facilities with nearby surplus centers containing safe reserves.
+*   Suggests the optimal transfer quantity and uses Gemini to write clinical reasoning.
+*   Executes peer-to-peer stock movements in a single click using **atomic Firestore transactions**.
+
+### 📦 5. Logistics Dispatch & Transit Pipeline
+*   Approved transfers are dispatched into a logistics pipeline tracking shipments (*Dispatched ➜ In Transit ➜ Delivered*).
+*   Simulates shipping time progress and provides reception actions for target clinics to automatically absorb the stock.
+
+### 💬 6. AI District Health Assistant
+*   A floating chat assistant equipped with **Gemini**.
+*   It serializes the live state of all clinics and passes it as prompt context. Admins can ask questions (e.g. *"Who is absent at Sopore CHC?"*) and get immediate data-driven answers.
 
 ---
 
-## Indian Languages Validation Status
+## 🛠️ Technologies Used
+*   **Frontend**: React (Vite), JavaScript, Vanilla CSS, Recharts (Data Visualizations), Lucide React (Icons)
+*   **Geospatial**: Leaflet Map API (CDN Voyager tiles)
+*   **Database**: Google Cloud Firestore (Live real-time sync & atomic transactions)
+*   **AI Services**: Google Gemini API (REST client with automatic endpoint failover & key-trimming), Google Cloud Speech-to-Text API
 
-The application is architected to support all major Indian languages for voice dictation and parsing. Due to constraints, the validation status is:
+---
 
-*   **Fully Tested & Verified (Demo Ready)**: English (`en-IN`), Hindi (`hi-IN`), Tamil (`ta-IN`).
-*   **Architecturally Supported (Unverified)**: Telugu, Kannada, Malayalam, Marathi, Gujarati, Bengali, Punjabi, Urdu, Odia.
+## 🔒 Safe Evaluator Configuration (Demo Mode)
+To keep developer credentials secure from public exposure:
+1.  The app runs in **Local Demo Mode** by default. All charts, maps, and AI suggestions function out-of-the-box using simulated local storage data.
+2.  Evaluators can test **live voice transcription and AI text parsing** by opening the **Developer Config** tab in the sidebar and entering their own GCP and Gemini API keys securely in the browser.
