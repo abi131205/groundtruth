@@ -159,7 +159,7 @@ function LogisticsPipeline() {
                   <div className="flex justify-between items-start">
                     <span className="text-xs" style={{ color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       <Clock size={12} />
-                      {new Date(trans.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      {trans.timestamp ? new Date(trans.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
                     </span>
                     <span className={`badge ${isDelivered ? 'badge-green' : isTransit ? 'badge-amber' : 'badge-red'}`}>
                       {isDelivered ? 'Delivered' : isTransit ? 'In Transit' : 'Dispatched'}
@@ -167,21 +167,21 @@ function LogisticsPipeline() {
                   </div>
 
                   <h3 style={{ fontSize: '1rem', fontWeight: 700, marginTop: '0.75rem', color: 'var(--color-text)' }}>
-                    {trans.medicineName.split(" ")[0]}
+                    {(trans.medicineName || 'Medicine').split(" ")[0]}
                   </h3>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Quantity: <strong>{trans.quantity}</strong> units
+                    Quantity: <strong>{trans.quantity || 0}</strong> units
                   </p>
 
                   <div className="flex justify-between items-center" style={{ backgroundColor: 'var(--color-bg)', padding: '0.75rem', borderRadius: 'var(--radius-md)', margin: '1rem 0' }}>
                     <div className="flex flex-col">
                       <span className="text-xs" style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>FROM</span>
-                      <span className="text-sm font-semibold">{trans.fromPhcName.split(" ")[0]}</span>
+                      <span className="text-sm font-semibold">{(trans.fromPhcName || trans.fromPhcId || 'Source').split(" ")[0]}</span>
                     </div>
                     <ArrowRightLeft size={16} style={{ color: 'var(--color-text-light)' }} />
                     <div className="flex flex-col text-right" style={{ textAlign: 'right' }}>
                       <span className="text-xs" style={{ fontWeight: 600, color: 'var(--color-text-muted)' }}>TO</span>
-                      <span className="text-sm font-semibold">{trans.toPhcName.split(" ")[0]}</span>
+                      <span className="text-sm font-semibold">{(trans.toPhcName || trans.toPhcId || 'Destination').split(" ")[0]}</span>
                     </div>
                   </div>
 
